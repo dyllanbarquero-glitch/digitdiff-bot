@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>🤖 DIGITDIFF BOT - 24/7</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        @keyframes fadeIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+        @keyframes glowYellow { 0%,100% { box-shadow:0 0 6px #ffd600; } 50% { box-shadow:0 0 22px #ffd600, 0 0 44px #ffd600aa; } }
+        @keyframes glowGreen  { 0%,100% { box-shadow:0 0 6px #00c853; } 50% { box-shadow:0 0 22px #00c853, 0 0 44px #00c85388; } }
+        @keyframes slideIn   { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:translateX(0); } }
+
+        .container { max-width: 1300px; margin: 0 auto; padding: 20px; animation: fadeIn 0.5s ease-out; }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 28px; padding-bottom: 18px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            flex-wrap: wrap; gap: 14px;
+        }
+        .logo { font-size: 26px; font-weight: bold; background: linear-gradient(135deg,#667eea,#764ba2); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+        .logo span { font-size: 30px; -webkit-text-fill-color: initial; }
+        .strategy-badge { background:rgba(102,126,234,0.2); padding:8px 16px; border-radius:50px; font-size:12px; border:1px solid rgba(102,126,234,0.5); }
+        .connection-status { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.1); padding:8px 16px; border-radius:50px; font-size:14px; }
+        .status-dot { width:10px; height:10px; border-radius:50%; background:#ff5252; }
+        .status-dot.connected   { background:#00c853; box-shadow:0 0 10px #00c853; }
+        .status-dot.connecting  { background:#ffc107; animation:pulse 1s infinite; }
+        .status-dot.reconnecting{ background:#ff9800; animation:pulse 1s infinite; }
+
+        .token-section { background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); border-radius:20px; padding:40px; margin-bottom:28px; text-align:center; }
+        .token-section h2 { margin-bottom:14px; font-size:26px; }
+        .token-section p  { opacity:0.8; margin-bottom:18px; }
+        .token-input-group { display:flex; gap:10px; max-width:600px; margin:0 auto 20px; flex-wrap:wrap; justify-content:center; align-items:center; }
+        .token-input { flex:1; min-width:180px; padding:14px 20px; border:none; border-radius:50px; background:rgba(255,255,255,0.1); color:white; font-size:14px; font-family:monospace; text-align:center; }
+        .token-input::placeholder { color:rgba(255,255,255,0.4); }
+        .account-select { padding:14px 20px; border:none; border-radius:50px; background:rgba(255,255,255,0.1); color:white; font-size:14px; cursor:pointer; min-width:150px; }
+        .account-select option { background:#1a1a2e; color:white; }
+        .btn-connect-token { background:linear-gradient(135deg,#00c853,#00a844); color:white; border:none; padding:14px 28px; border-radius:50px; font-size:15px; font-weight:bold; cursor:pointer; transition:transform 0.2s; white-space:nowrap; }
+        .btn-connect-token:hover { transform:scale(1.02); }
+        .btn-connect-token:disabled { opacity:0.5; cursor:not-allowed; }
+        .btn-switch { background:linear-gradient(135deg,#f59e0b,#d97706); color:#000; border:none; padding:10px 18px; border-radius:50px; font-size:13px; font-weight:bold; cursor:pointer; margin-left:8px; }
+        .btn-switch:disabled { opacity:0.5; cursor:not-allowed; }
+
+        .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:24px; }
+        .stat-card  { background:rgba(255,255,255,0.08); padding:18px; border-radius:14px; text-align:center; }
+        .stat-label { font-size:11px; opacity:0.7; margin-bottom:8px; }
+        .stat-value { font-size:26px; font-weight:bold; }
+
+        .controls-row { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-bottom:24px; background:rgba(255,255,255,0.05); border-radius:15px; padding:18px 22px; }
+        .controls-row label { font-size:13px; opacity:0.8; margin-right:4px; }
+        .controls-row input { width:90px; padding:9px 13px; border-radius:10px; border:none; background:rgba(255,255,255,0.1); color:white; font-size:14px; }
+        .btn-start, .btn-stop { padding:11px 28px; border:none; border-radius:10px; font-weight:bold; cursor:pointer; font-size:14px; transition:opacity 0.2s; }
+        .btn-start { background:#00c853; color:white; }
+        .btn-stop  { background:#ff5252; color:white; }
+        .btn-start:disabled,.btn-stop:disabled { opacity:0.4; cursor:not-allowed; }
+        .bot-status-badge { margin-left:auto; font-size:13px; padding:8px 18px; border-radius:50px; background:rgba(255,255,255,0.08); }
+
+        .pairs-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px; margin-bottom:24px; }
+
+        .pair-card {
+            background:rgba(255,255,255,0.05);
+            border-radius:16px; padding:18px;
+            border:2px solid transparent;
+            transition:border-color 0.3s, background 0.3s;
+            position:relative; overflow:hidden;
+        }
+        .pair-card.ready { border-color:#ffd600; background:rgba(255,214,0,0.07); animation:glowYellow 1.5s ease-in-out infinite; }
+        .pair-card.trading { border-color:#00c853; background:rgba(0,200,83,0.07); animation:glowGreen 1.5s ease-in-out infinite; }
+        .pair-card.blocked { border-color:rgba(255,82,82,0.4); background:rgba(255,82,82,0.05); }
+
+        .pair-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+        .pair-name   { font-size:18px; font-weight:bold; color:#667eea; }
+        .pair-state  { font-size:11px; padding:3px 10px; border-radius:50px; background:rgba(255,255,255,0.1); }
+        .pair-state.ready   { background:rgba(255,214,0,0.25);  color:#ffd600; }
+        .pair-state.trading { background:rgba(0,200,83,0.25);   color:#00c853; }
+        .pair-state.blocked { background:rgba(255,82,82,0.2);   color:#ff5252; }
+
+        .pair-digit-big { font-size:42px; font-weight:bold; text-align:center; margin:8px 0; min-height:52px; }
+
+        .streak-row { display:flex; justify-content:center; gap:6px; margin:10px 0 6px; flex-wrap:wrap; }
+        .sdot { width:22px; height:22px; border-radius:50%; border:2px solid rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:bold; transition:all 0.25s; }
+        .sdot.on    { background:#ffd600; border-color:#ffd600; color:#000; }
+        .sdot.fire  { background:#ff5252; border-color:#ff5252; color:#fff; animation:pulse 0.5s infinite; }
+
+        .streak-label { text-align:center; font-size:12px; opacity:0.7; margin-bottom:8px; }
+        .mini-digits { display:flex; flex-wrap:wrap; gap:4px; justify-content:center; }
+        .mini-digit  { width:24px; height:24px; border-radius:6px; background:rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold; transition:all 0.2s; }
+        .mini-digit.streak-hi { background:rgba(255,214,0,0.3); border:1px solid #ffd600; }
+        .mini-digit.traded-hi { background:rgba(255,82,82,0.25); border:1px solid #ff5252; }
+
+        .logs-panel { background:rgba(0,0,0,0.5); border-radius:15px; padding:18px; margin-bottom:22px; }
+        .logs-panel h3 { margin-bottom:12px; font-size:16px; color:#667eea; }
+        .logs-container { max-height:230px; overflow-y:auto; font-family:monospace; font-size:12px; }
+        .log-entry { padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.04); animation:slideIn 0.2s ease; }
+        .log-win     { color:#00c853; }
+        .log-loss    { color:#ff5252; }
+        .log-info    { color:#64b5f6; }
+        .log-warning { color:#ffc107; }
+        .log-success { color:#00c853; }
+
+        .user-info { background:rgba(0,200,83,0.1); border-radius:10px; padding:14px; margin-top:18px; display:none; }
+        .user-info.show { display:block; }
+        .how-to { background:rgba(0,0,0,0.3); border-radius:12px; padding:14px; margin-top:18px; font-size:12px; text-align:left; }
+        .how-to a { color:#667eea; text-decoration:none; }
+        #connectMsg { margin-top:10px; font-size:0.8rem; }
+
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; justify-content:center; align-items:center; }
+        .modal.active { display:flex; }
+        .modal-content { background:linear-gradient(135deg,#1a1a2e,#16213e); border-radius:20px; padding:28px; max-width:400px; width:90%; text-align:center; border:1px solid rgba(255,255,255,0.1); animation:fadeIn 0.3s ease; }
+        .modal-content h2 { color:#ff9800; margin-bottom:18px; }
+        .pnl-item { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid rgba(255,255,255,0.08); }
+        .pnl-profit { color:#00c853; font-weight:bold; }
+        .pnl-loss   { color:#ff5252; font-weight:bold; }
+        .pnl-percent { font-size:24px; font-weight:bold; margin:14px 0; }
+        .pnl-percent.positive { color:#00c853; }
+        .pnl-percent.negative { color:#ff5252; }
+        .btn-close-modal { background:linear-gradient(135deg,#667eea,#764ba2); color:white; border:none; padding:11px 28px; border-radius:50px; cursor:pointer; margin-top:18px; font-weight:bold; }
+        .btn-download    { background:rgba(255,255,255,0.1); color:white; border:none; padding:9px 18px; border-radius:50px; cursor:pointer; margin-top:8px; font-size:12px; display:block; margin-left:auto; margin-right:auto; }
+
+        @media(max-width:600px) {
+            .pairs-grid { grid-template-columns:1fr 1fr; }
+            .pair-digit-big { font-size:32px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <div class="logo"><span>🤖</span> DIGITDIFF BOT</div>
+        <div class="strategy-badge" id="strategyBadge">🔁 11 Pares · Ejecución Instantánea</div>
+        <div class="connection-status">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Desconectado</span>
+        </div>
+    </div>
+
+    <div class="token-section" id="tokenSection">
+        <h2>🔑 Conecta tu cuenta de Deriv</h2>
+        <p>Selecciona Demo o Real · Ejecución INSTANTÁNEA · 24/7</p>
+        <div class="token-input-group">
+            <select id="accountType" class="account-select">
+                <option value="demo">🟢 Cuenta Demo</option>
+                <option value="real">🔴 Cuenta Real</option>
+            </select>
+            <input type="text" id="appId" class="token-input" placeholder="App ID" value="33A0UhDa0Wa1FkvF9zlKh" style="max-width:220px;">
+            <input type="text" id="patToken" class="token-input" placeholder="PAT Token" value="pat_3ee3edc2b80c8daea41968ea5d8205df7f75f187d17f17175d3eb863acb82d23" style="max-width:280px;">
+        </div>
+        <button id="connectTokenBtn" class="btn-connect-token">✅ Conectar</button>
+        <div id="connectMsg"></div>
+        <div id="userInfo" class="user-info"></div>
+        <div class="how-to">
+            📌 <strong>¿Cómo obtener tu PAT Token?</strong><br>
+            1. Ve a <a href="https://app.deriv.com/account/api-token" target="_blank">app.deriv.com/account/api-token</a><br>
+            2. Crea un token con permisos: <strong>read, trade, payments</strong><br>
+            3. Copia el token (formato pat_...) y pégalo arriba
+        </div>
+    </div>
+
+    <div class="stats-grid" id="statsGrid" style="display:none;">
+        <div class="stat-card"><div class="stat-label">Balance</div><div class="stat-value" id="balance">$0.00</div></div>
+        <div class="stat-card"><div class="stat-label">Profit Total</div><div class="stat-value" id="profit">$0.00</div></div>
+        <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value" id="winRate">0%</div></div>
+        <div class="stat-card"><div class="stat-label">Trades</div><div class="stat-value" id="trades">0</div></div>
+        <div class="stat-card"><div class="stat-label">Wins / Losses</div><div class="stat-value" id="winsLosses">0 / 0</div></div>
+    </div>
+
+    <div class="controls-row" id="botControls" style="display:none;">
+        <span style="font-size:13px;" id="accountBadge">🟢 DEMO</span>
+        <button class="btn-switch" id="switchAccountBtn" onclick="switchAccount()" disabled>🔄 Cambiar cuenta</button>
+        <label>Stake:</label>
+        <input type="number" id="stake" value="8.00" step="0.50" min="0.35">
+        <label>Repeticiones:</label>
+        <input type="number" id="triggerInput" value="8" step="1" min="2" max="20" style="width:70px;">
+        <button id="startBotBtn" class="btn-start">▶ Iniciar Bot</button>
+        <button id="stopBotBtn" class="btn-stop" disabled>⏹ Detener</button>
+        <div class="bot-status-badge" id="botStatusText">⚪ Bot detenido</div>
+    </div>
+
+    <div class="pairs-grid" id="pairsGrid" style="display:none;"></div>
+
+    <div class="logs-panel" id="logsPanel" style="display:none;">
+        <h3>📋 Logs</h3>
+        <div id="logsContainer" class="logs-container"></div>
+    </div>
+
+</div>
+
+<div id="pnlModal" class="modal">
+    <div class="modal-content">
+        <h2>📊 Profit & Loss Summary</h2>
+        <div class="pnl-stats">
+            <div class="pnl-item"><span>💰 Balance Final:</span><span id="modalBalance">$0.00</span></div>
+            <div class="pnl-item"><span>📈 Profit Total:</span><span id="modalProfit" class="pnl-profit">$0.00</span></div>
+            <div class="pnl-item"><span>🏆 Wins:</span><span id="modalWins">0</span></div>
+            <div class="pnl-item"><span>💀 Losses:</span><span id="modalLosses">0</span></div>
+            <div class="pnl-item"><span>🎲 Trades Totales:</span><span id="modalTrades">0</span></div>
+        </div>
+        <div id="modalPercent" class="pnl-percent positive">+0%</div>
+        <button id="downloadPngBtn" class="btn-download">📸 Descargar como PNG</button>
+        <button id="closeModalBtn" class="btn-close-modal">Cerrar</button>
+    </div>
+</div>
+
+<script>
+// =====================================================
+//  CONFIGURACIÓN
+// =====================================================
+const REST_BASE = 'https://api.derivws.com';
+const SYMBOLS = ['R_100', '1HZ75V', '1HZ100V', '1HZ25V', '1HZ50V', '1HZ10V', 'JD10', 'JD25', 'JD50', 'JD75', 'JD100'];
+let TRIGGER = 3;
+const LOOKBACK = 50;
+const MAX_RECONNECT = 20;
+const RECONNECT_DELAY = 5000;
+
+// =====================================================
+//  ESTADO GLOBAL
+// =====================================================
+let ws = null;
+let botRunning = false;
+let reconnecting = false;
+let reconnectAttempts = 0;
+let reconnectInterval = null;
+let currentStake = 1.00;
+let appId = '';
+let patToken = 'pat_3ee3edc2b80c8daea41968ea5d8205df7f75f187d17f17175d3eb863acb82d23';
+let currentAccountId = '';
+let currentAccountType = 'demo';
+let allAccounts = [];
+let currentTradingSymbol = null;
+
+const symState = {};
+SYMBOLS.forEach(s => {
+    symState[s] = {
+        tickHistory: [], consecutive: 0, lastDigit: null,
+        lastTraded: null, pending: false, activeContracts: new Map()
+    };
+});
+
+const botStats = {
+    balance: 0, initialBalance: 0, totalProfit: 0,
+    winCount: 0, lossCount: 0, totalTrades: 0
+};
+
+const contractSymbolMap = new Map();
+
+// =====================================================
+//  TRADING
+// =====================================================
+function executeTrade(sym) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        addLog(`⚠️ [${sym}] WebSocket no disponible`, 'warning');
+        return;
+    }
+    const st = symState[sym];
+    if (!st || st.lastDigit === null) return;
+    
+    const digit = st.lastDigit;
+    const count = st.consecutive || 1;
+    
+    if (st.pending || st.activeContracts.size > 0) {
+        addLog(`⏳ [${sym}] Ya hay operación pendiente`, 'info');
+        return;
+    }
+    
+    st.lastTraded = digit;
+    st.pending = true;
+    currentTradingSymbol = sym;
+    
+    addLog(`🎯 [${sym}] ENTRADA: dígito ${digit} x${count} → DIGITDIFF | $${currentStake}`, 'warning');
+    
+    const proposal = {
+        proposal: 1,
+        amount: currentStake,
+        basis: 'stake',
+        contract_type: 'DIGITDIFF',
+        currency: 'USD',
+        duration: 1,
+        duration_unit: 't',
+        underlying_symbol: sym,
+        barrier: digit.toString()
+    };
+    
+    ws.send(JSON.stringify(proposal));
+    updatePairCard(sym);
+}
+
+function processResult(contractId, profit, barrier, sym) {
+    const digit = parseInt(barrier);
+    botStats.totalTrades++;
+    botStats.totalProfit += profit;
+    botStats.balance += profit;
+    
+    if (profit > 0) {
+        botStats.winCount++;
+        addLog(`✅ WIN  [${sym}] Dígito ${digit} NO salió | +$${profit.toFixed(2)}`, 'win');
+    } else {
+        botStats.lossCount++;
+        addLog(`❌ LOSS [${sym}] Dígito ${digit} SÍ salió | -$${Math.abs(profit).toFixed(2)}`, 'loss');
+    }
+    
+    if (symState[sym]) {
+        symState[sym].activeContracts.delete(contractId);
+        symState[sym].pending = false;
+    }
+    contractSymbolMap.delete(contractId);
+    updatePairCard(sym);
+    updateGlobalStats();
+}
+
+function processTick(sym, price) {
+    const digit = getLastDigit(price);
+    if (digit === null) return;
+    
+    const st = symState[sym];
+    if (!st) return;
+    
+    if (digit !== st.lastDigit) {
+        st.consecutive = 1;
+        if (digit !== st.lastTraded) st.lastTraded = null;
+    } else {
+        st.consecutive++;
+    }
+    st.lastDigit = digit;
+    st.tickHistory.unshift(digit);
+    if (st.tickHistory.length > LOOKBACK) st.tickHistory.pop();
+    
+    updatePairCard(sym);
+    
+    if (botRunning && st.consecutive >= TRIGGER && st.lastTraded !== st.lastDigit) {
+        if (st.activeContracts.size === 0 && !st.pending) {
+            executeTrade(sym);
+        }
+    }
+}
+
+// =====================================================
+//  UI
+// =====================================================
+function buildPairCards() {
+    const grid = document.getElementById('pairsGrid');
+    grid.innerHTML = '';
+    SYMBOLS.forEach(sym => {
+        const card = document.createElement('div');
+        card.className = 'pair-card';
+        card.id = `card-${sym}`;
+        const dots = Array.from({ length: TRIGGER }, (_, i) =>
+            `<div class="sdot" id="sd-${sym}-${i}">${i + 1}</div>`).join('');
+        const fireDot = `<div class="sdot" id="sd-${sym}-fire">🎯</div>`;
+        card.innerHTML = `
+            <div class="pair-header"><div class="pair-name">${sym}</div><div class="pair-state" id="state-${sym}">Esperando</div></div>
+            <div class="pair-digit-big" id="digit-${sym}">—</div>
+            <div class="streak-row" id="streak-${sym}">${dots}${fireDot}</div>
+            <div class="streak-label" id="label-${sym}">Racha: 0</div>
+            <div class="mini-digits" id="mini-${sym}"></div>`;
+        grid.appendChild(card);
+    });
+}
+
+function updatePairCard(sym) {
+    const st = symState[sym];
+    if (!st) return;
+    
+    const stateEl = document.getElementById(`state-${sym}`);
+    const digitEl = document.getElementById(`digit-${sym}`);
+    const labelEl = document.getElementById(`label-${sym}`);
+    const miniEl = document.getElementById(`mini-${sym}`);
+    if (!stateEl) return;
+    
+    const digit = st.lastDigit;
+    const count = st.consecutive || 0;
+    const isReady = count >= TRIGGER && st.lastTraded !== digit;
+    const isTrading = st.activeContracts.size > 0 || st.pending;
+    const isBlocked = st.lastTraded === digit && count >= TRIGGER;
+    
+    const card = document.getElementById(`card-${sym}`);
+    if (card) {
+        card.className = 'pair-card' + (isTrading ? ' trading' : isReady ? ' ready' : isBlocked ? ' blocked' : '');
+    }
+    stateEl.textContent = isTrading ? '⚡ Operando' : isReady ? '🔥 ¡LISTO!' : isBlocked ? '🚫 Bloqueado' : `Racha: ${count}/${TRIGGER}`;
+    stateEl.className = 'pair-state' + (isTrading ? ' trading' : isReady ? ' ready' : isBlocked ? ' blocked' : '');
+    digitEl.textContent = digit !== null ? digit : '—';
+    
+    for (let i = 0; i < TRIGGER; i++) {
+        const dot = document.getElementById(`sd-${sym}-${i}`);
+        if (dot) dot.className = 'sdot' + (i < count ? ' on' : '');
+    }
+    const fireDot = document.getElementById(`sd-${sym}-fire`);
+    if (fireDot) fireDot.className = 'sdot' + (count >= TRIGGER ? ' fire' : '');
+    
+    labelEl.textContent = `Racha: ${count} | Dígito: ${digit !== null ? digit : '—'}`;
+    
+    miniEl.innerHTML = '';
+    st.tickHistory.slice(0, 20).forEach((d, i) => {
+        const box = document.createElement('div');
+        box.className = 'mini-digit';
+        box.textContent = d;
+        if (d === digit && i < count) box.classList.add('streak-hi');
+        else if (d === st.lastTraded) box.classList.add('traded-hi');
+        miniEl.appendChild(box);
+    });
+}
+
+function updateGlobalStats() {
+    const wr = botStats.totalTrades > 0 ? (botStats.winCount / botStats.totalTrades * 100).toFixed(1) : 0;
+    document.getElementById('balance').textContent = `$${botStats.balance.toFixed(2)}`;
+    document.getElementById('profit').textContent = `$${botStats.totalProfit.toFixed(2)}`;
+    document.getElementById('winRate').textContent = `${wr}%`;
+    document.getElementById('trades').textContent = botStats.totalTrades;
+    document.getElementById('winsLosses').textContent = `${botStats.winCount} / ${botStats.lossCount}`;
+}
+
+function addLog(msg, type = 'info') {
+    const container = document.getElementById('logsContainer');
+    if (!container) return;
+    const log = document.createElement('div');
+    log.className = `log-entry log-${type}`;
+    log.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    container.appendChild(log);
+    log.scrollIntoView({ behavior: 'smooth' });
+    if (container.children.length > 200) container.removeChild(container.firstChild);
+}
+
+function getLastDigit(price) {
+    try { return parseInt(parseFloat(price).toFixed(2).slice(-1)); } 
+    catch { return null; }
+}
+
+function updateStatus(connected, connecting = false, reconn = false) {
+    const dot = document.getElementById('statusDot'), text = document.getElementById('statusText');
+    dot.className = 'status-dot' + (reconn ? ' reconnecting' : connecting ? ' connecting' : connected ? ' connected' : '');
+    text.textContent = reconn ? 'Reconectando...' : connecting ? 'Conectando...' : connected ? 'Conectado' : 'Desconectado';
+    reconnecting = reconn;
+    if (connected) reconnectAttempts = 0;
+}
+
+function updateAccountBadge() {
+    const badge = document.getElementById('accountBadge');
+    if (badge) {
+        badge.innerHTML = currentAccountType === 'demo' ? '🟢 DEMO' : '🔴 REAL';
+        badge.style.color = currentAccountType === 'demo' ? '#10b981' : '#ef4444';
+    }
+}
+
+// =====================================================
+//  CONEXIÓN API
+// =====================================================
+async function connectToDeriv() {
+    appId = document.getElementById('appId').value.trim();
+    patToken = document.getElementById('patToken').value.trim();
+    currentAccountType = document.getElementById('accountType').value;
+
+    if (!appId || !patToken) {
+        document.getElementById('connectMsg').innerHTML = '❌ Completa todos los campos';
+        return;
+    }
+
+    document.getElementById('connectTokenBtn').disabled = true;
+    document.getElementById('connectTokenBtn').textContent = '⏳ Conectando...';
+    document.getElementById('connectMsg').innerHTML = '⏳ Obteniendo cuentas...';
+    updateStatus(false, true);
+
+    const headers = {
+        'Deriv-App-ID': appId,
+        'Authorization': `Bearer ${patToken}`,
+        'Content-Type': 'application/json'
+    };
+
+    try {
+        const accResp = await fetch(`${REST_BASE}/trading/v1/options/accounts`, { headers });
+        if (!accResp.ok) throw new Error(`Error HTTP ${accResp.status}`);
+        
+        const accData = await accResp.json();
+        allAccounts = accData.data || [];
+        if (!allAccounts.length) throw new Error('No se encontraron cuentas');
+
+        let account = allAccounts.find(a => a.account_type === currentAccountType);
+        if (!account) {
+            account = allAccounts[0];
+            currentAccountType = account.account_type;
+            document.getElementById('accountType').value = currentAccountType;
+            addLog(`⚠️ Cuenta ${currentAccountType === 'demo' ? 'Real' : 'Demo'} no disponible. Usando ${currentAccountType}.`, 'warning');
+        }
+
+        currentAccountId = account.account_id;
+        botStats.balance = parseFloat(account.balance || 0);
+        botStats.initialBalance = botStats.balance;
+        updateAccountBadge();
+        addLog(`✅ Cuenta seleccionada: ${account.account_id} (${currentAccountType.toUpperCase()})`, 'success');
+
+        document.getElementById('connectMsg').innerHTML = '⏳ Solicitando acceso WebSocket...';
+        
+        const otpResp = await fetch(`${REST_BASE}/trading/v1/options/accounts/${account.account_id}/otp`, {
+            method: 'POST', headers
+        });
+        if (!otpResp.ok) throw new Error(`Error OTP: ${otpResp.status}`);
+
+        const otpData = await otpResp.json();
+        const wsUrl = otpData.data?.url;
+        if (!wsUrl) throw new Error('No se obtuvo URL');
+
+        document.getElementById('connectMsg').innerHTML = '✅ Conectando WebSocket...';
+        openWebSocket(wsUrl);
+
+    } catch (e) {
+        document.getElementById('connectMsg').innerHTML = `❌ ${e.message}`;
+        document.getElementById('connectTokenBtn').disabled = false;
+        document.getElementById('connectTokenBtn').textContent = '✅ Conectar';
+        updateStatus(false);
+    }
+}
+
+async function switchAccount() {
+    if (!allAccounts.length || !appId || !patToken) return;
+
+    botRunning = false;
+    document.getElementById('startBotBtn').disabled = false;
+    document.getElementById('stopBotBtn').disabled = true;
+    document.getElementById('botStatusText').innerHTML = '⚪ Bot detenido';
+
+    const newType = currentAccountType === 'demo' ? 'real' : 'demo';
+    const account = allAccounts.find(a => a.account_type === newType);
+    
+    if (!account) {
+        addLog(`❌ No hay cuenta ${newType.toUpperCase()} disponible`, 'loss');
+        return;
+    }
+
+    addLog(`🔄 Cambiando a cuenta ${newType.toUpperCase()}...`, 'warning');
+    
+    if (ws) { ws.close(); }
+    if (reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
+    reconnecting = false;
+
+    currentAccountType = newType;
+    currentAccountId = account.account_id;
+    botStats.balance = parseFloat(account.balance || 0);
+    botStats.initialBalance = botStats.balance;
+    botStats.totalProfit = 0;
+    botStats.winCount = 0;
+    botStats.lossCount = 0;
+    botStats.totalTrades = 0;
+    updateAccountBadge();
+    updateGlobalStats();
+    document.getElementById('accountType').value = newType;
+
+    const headers = {
+        'Deriv-App-ID': appId,
+        'Authorization': `Bearer ${patToken}`,
+        'Content-Type': 'application/json'
+    };
+
+    try {
+        const otpResp = await fetch(`${REST_BASE}/trading/v1/options/accounts/${account.account_id}/otp`, {
+            method: 'POST', headers
+        });
+        if (otpResp.ok) {
+            const d = await otpResp.json();
+            if (d.data?.url) {
+                openWebSocket(d.data.url);
+                addLog(`✅ Conectado a cuenta ${newType.toUpperCase()}`, 'success');
+            }
+        }
+    } catch (e) {
+        addLog(`❌ Error al cambiar: ${e.message}`, 'loss');
+    }
+}
+
+function openWebSocket(url) {
+    if (ws) try { ws.close(); } catch (e) {}
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+        updateStatus(true);
+        addLog('✅ WebSocket conectado!', 'success');
+        document.getElementById('userInfo').innerHTML = `<strong>✅ Conectado:</strong> ${currentAccountId} (${currentAccountType.toUpperCase()}) | 💰 $${botStats.balance.toFixed(2)}`;
+        document.getElementById('userInfo').classList.add('show');
+        ['statsGrid', 'botControls', 'pairsGrid', 'logsPanel'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = id === 'statsGrid' || id === 'pairsGrid' ? 'grid' : id === 'botControls' ? 'flex' : 'block';
+        });
+        document.getElementById('tokenSection').style.display = 'none';
+        document.getElementById('switchAccountBtn').disabled = false;
+        buildPairCards();
+        ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+        SYMBOLS.forEach(sym => ws.send(JSON.stringify({ ticks: sym, subscribe: 1 })));
+        addLog(`📊 Suscrito a ${SYMBOLS.length} pares (${currentAccountType.toUpperCase()})`, 'success');
+        document.getElementById('connectTokenBtn').disabled = false;
+        document.getElementById('connectTokenBtn').textContent = '✅ Conectar';
+        document.getElementById('connectMsg').innerHTML = '';
+        if (reconnectInterval) clearInterval(reconnectInterval);
+        reconnecting = false;
+    };
+
+    ws.onmessage = (e) => {
+        try {
+            const data = JSON.parse(e.data);
+            if (data.error) { 
+                addLog(`❌ Error: ${data.error.message || data.error}`, 'loss'); 
+                return; 
+            }
+            
+            if (data.msg_type === 'balance' || data.balance) {
+                const bal = data.balance?.balance || data.balance;
+                if (bal && typeof bal === 'number') { 
+                    botStats.balance = parseFloat(bal); 
+                    if (botStats.initialBalance === 0) botStats.initialBalance = botStats.balance; 
+                    updateGlobalStats(); 
+                }
+                return;
+            }
+            
+            if (data.tick) { 
+                const { symbol, quote } = data.tick; 
+                processTick(symbol, quote); 
+            }
+            
+            if (data.proposal && botRunning) { 
+                ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price })); 
+            }
+            
+            if (data.buy) {
+                const id = data.buy.contract_id;
+                const barrier = data.buy.barrier;
+                const sym = currentTradingSymbol || 'UNKNOWN';
+                if (symState[sym]) { 
+                    symState[sym].activeContracts.set(id, { id, barrier }); 
+                    symState[sym].pending = false; 
+                }
+                contractSymbolMap.set(id, sym); 
+                currentTradingSymbol = null; 
+                updatePairCard(sym);
+                
+                const monitor = setInterval(() => {
+                    if (!symState[sym]?.activeContracts.has(id)) { 
+                        clearInterval(monitor); 
+                        return; 
+                    }
+                    if (ws?.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: id }));
+                    }
+                }, 1200);
+                setTimeout(() => clearInterval(monitor), 35000);
+            }
+            
+            if (data.proposal_open_contract?.is_sold) {
+                const c = data.proposal_open_contract;
+                const profit = parseFloat(c.profit || 0);
+                const cid = c.contract_id;
+                const sym = contractSymbolMap.get(cid) || 'UNKNOWN';
+                if (symState[sym]?.activeContracts.has(cid)) { 
+                    processResult(cid, profit, c.barrier, sym); 
+                    contractSymbolMap.delete(cid); 
+                }
+            }
+            
+        } catch (err) {
+            addLog(`⚠️ Error procesando mensaje: ${err.message}`, 'warning');
+        }
+    };
+
+    ws.onerror = () => { 
+        addLog('❌ Error WebSocket', 'loss'); 
+        updateStatus(false); 
+    };
+    
+    ws.onclose = () => {
+        addLog('🔌 Conexión cerrada', 'loss');
+        updateStatus(false);
+        document.getElementById('switchAccountBtn').disabled = true;
+        if (botRunning && patToken && !reconnecting) startReconnect();
+    };
+}
+
+function startReconnect() {
+    if (reconnecting) return;
+    reconnecting = true;
+    updateStatus(false, false, true);
+    addLog('🔄 Reconectando...', 'warning');
+    reconnectAttempts = 0;
+    if (reconnectInterval) clearInterval(reconnectInterval);
+    reconnectInterval = setInterval(async () => {
+        if (!botRunning && !patToken) { clearInterval(reconnectInterval); return; }
+        if (reconnectAttempts >= MAX_RECONNECT) { 
+            addLog('❌ Máximos intentos', 'loss'); 
+            clearInterval(reconnectInterval); 
+            reconnecting = false; 
+            updateStatus(false); 
+            return; 
+        }
+        reconnectAttempts++;
+        try {
+            const headers = { 
+                'Deriv-App-ID': appId, 
+                'Authorization': `Bearer ${patToken}`, 
+                'Content-Type': 'application/json' 
+            };
+            const otpResp = await fetch(`${REST_BASE}/trading/v1/options/accounts/${currentAccountId}/otp`, { 
+                method: 'POST', 
+                headers 
+            });
+            if (otpResp.ok) { 
+                const d = await otpResp.json(); 
+                if (d.data?.url) { 
+                    openWebSocket(d.data.url); 
+                    reconnectAttempts = 0; 
+                    return; 
+                } 
+            }
+        } catch (e) {}
+    }, RECONNECT_DELAY);
+}
+
+// =====================================================
+//  EVENTOS
+// =====================================================
+document.getElementById('connectTokenBtn').onclick = connectToDeriv;
+
+document.getElementById('startBotBtn').onclick = () => {
+    TRIGGER = Math.max(2, Math.min(20, parseInt(document.getElementById('triggerInput').value) || 3));
+    botRunning = true;
+    currentStake = parseFloat(document.getElementById('stake').value) || 1.00;
+    SYMBOLS.forEach(s => { 
+        symState[s].lastTraded = null; 
+        symState[s].pending = false; 
+    });
+    buildPairCards();
+    document.getElementById('strategyBadge').textContent = `🔁 ${SYMBOLS.length} Pares · Trigger: ${TRIGGER} · ${currentAccountType.toUpperCase()}`;
+    document.getElementById('startBotBtn').disabled = true;
+    document.getElementById('stopBotBtn').disabled = false;
+    document.getElementById('triggerInput').disabled = true;
+    document.getElementById('switchAccountBtn').disabled = true;
+    document.getElementById('botStatusText').innerHTML = `🟢 ACTIVO | Trigger: ${TRIGGER} | ${currentAccountType.toUpperCase()}`;
+    addLog(`🚀 BOT INICIADO | Stake: $${currentStake} | Trigger: ${TRIGGER} | ${currentAccountType.toUpperCase()}`, 'success');
+};
+
+document.getElementById('stopBotBtn').onclick = () => {
+    botRunning = false;
+    document.getElementById('startBotBtn').disabled = false;
+    document.getElementById('stopBotBtn').disabled = true;
+    document.getElementById('triggerInput').disabled = false;
+    document.getElementById('switchAccountBtn').disabled = false;
+    document.getElementById('botStatusText').innerHTML = '⚪ Bot detenido';
+    addLog('⏹ BOT DETENIDO', 'info');
+    showProfitSummary();
+};
+
+document.getElementById('closeModalBtn').onclick = () => document.getElementById('pnlModal').classList.remove('active');
+document.getElementById('pnlModal').onclick = (e) => { 
+    if (e.target === document.getElementById('pnlModal')) document.getElementById('pnlModal').classList.remove('active'); 
+};
+
+document.getElementById('downloadPngBtn').onclick = () => {
+    const node = document.querySelector('#pnlModal .modal-content');
+    const clone = node.cloneNode(true);
+    clone.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
+    document.body.appendChild(clone);
+    const run = () => {
+        html2canvas(clone, { scale: 2, backgroundColor: '#1a1a2e' }).then(canvas => {
+            const a = document.createElement('a'); 
+            a.download = `pnl_${new Date().toLocaleDateString()}.png`; 
+            a.href = canvas.toDataURL(); 
+            a.click();
+            document.body.removeChild(clone);
+        });
+    };
+    if (typeof html2canvas === 'undefined') { 
+        const s = document.createElement('script'); 
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'; 
+        s.onload = run; 
+        document.head.appendChild(s); 
+    } else { 
+        run(); 
+    }
+};
+
+function showProfitSummary() {
+    const p = botStats.totalProfit;
+    const pc = botStats.initialBalance > 0 ? (p / botStats.initialBalance * 100).toFixed(2) : 0;
+    const pos = p >= 0;
+    document.getElementById('modalBalance').textContent = `$${botStats.balance.toFixed(2)}`;
+    document.getElementById('modalProfit').textContent = `${pos ? '+' : ''}$${p.toFixed(2)}`;
+    document.getElementById('modalWins').textContent = botStats.winCount;
+    document.getElementById('modalLosses').textContent = botStats.lossCount;
+    document.getElementById('modalTrades').textContent = botStats.totalTrades;
+    const pct = document.getElementById('modalPercent');
+    pct.textContent = `${pos ? '+' : ''}${pc}%`;
+    pct.className = `pnl-percent ${pos ? 'positive' : 'negative'}`;
+    document.getElementById('modalProfit').className = pos ? 'pnl-profit' : 'pnl-loss';
+    document.getElementById('pnlModal').classList.add('active');
+}
+
+// =====================================================
+//  AUTO-CONEXIÓN AL CARGAR (24/7)
+// =====================================================
+document.addEventListener('DOMContentLoaded', function() {
+    addLog('🤖 DIGITDIFF BOT v4 - 24/7 ACTIVO', 'success');
+    addLog(`📊 ${SYMBOLS.length} pares configurados`, 'info');
+    addLog('🔑 Token pre-cargado - Conectando automáticamente...', 'info');
+    
+    // Auto-conectar al cargar la página
+    setTimeout(() => {
+        connectToDeriv();
+    }, 1500);
+});
+</script>
+</body>
+</html>
