@@ -37,7 +37,9 @@
         .status-dot.connecting  { background:#ffc107; animation:pulse 1s infinite; }
         .status-dot.reconnecting{ background:#ff9800; animation:pulse 1s infinite; }
 
-        .token-section { background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); border-radius:20px; padding:40px; margin-bottom:28px; text-align:center; }
+        .token-section { background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); border-radius:20px; padding:40px; margin-bottom:28px; text-align:center; display:block; }
+        .token-section.hidden { display:none; }
+
         .token-section h2 { margin-bottom:14px; font-size:26px; }
         .token-section p  { opacity:0.8; margin-bottom:18px; }
         .token-input-group { display:flex; gap:10px; max-width:600px; margin:0 auto 20px; flex-wrap:wrap; justify-content:center; align-items:center; }
@@ -138,10 +140,10 @@
 
     <div class="header">
         <div class="logo"><span>🤖</span> DIGITDIFF BOT</div>
-        <div class="strategy-badge" id="strategyBadge">🔁 11 Pares · Ejecución Instantánea</div>
+        <div class="strategy-badge" id="strategyBadge">🔁 11 Pares · 24/7 Automático</div>
         <div class="connection-status">
             <div class="status-dot" id="statusDot"></div>
-            <span id="statusText">Desconectado</span>
+            <span id="statusText">Conectando automáticamente...</span>
         </div>
     </div>
 
@@ -233,11 +235,12 @@ let reconnectAttempts = 0;
 let reconnectInterval = null;
 let currentStake = 1.00;
 let appId = '';
-let patToken = 'pat_3ee3edc2b80c8daea41968ea5d8205df7f75f187d17f17175d3eb863acb82d23';
+let patToken = '';
 let currentAccountId = '';
 let currentAccountType = 'demo';
 let allAccounts = [];
 let currentTradingSymbol = null;
+let autoConnectDone = false;
 
 const symState = {};
 SYMBOLS.forEach(s => {
@@ -801,18 +804,29 @@ function showProfitSummary() {
 }
 
 // =====================================================
-//  AUTO-CONEXIÓN AL CARGAR (24/7)
+//  AUTO-CONEXIÓN 24/7 - SE CONECTA SOLO AL CARGAR
 // =====================================================
 document.addEventListener('DOMContentLoaded', function() {
     addLog('🤖 DIGITDIFF BOT v4 - 24/7 ACTIVO', 'success');
     addLog(`📊 ${SYMBOLS.length} pares configurados`, 'info');
     addLog('🔑 Token pre-cargado - Conectando automáticamente...', 'info');
+    addLog('🔄 El bot se mantendrá activo 24/7', 'success');
     
     // Auto-conectar al cargar la página
-    setTimeout(() => {
-        connectToDeriv();
-    }, 1500);
+    setTimeout(function() {
+        if (!autoConnectDone) {
+            autoConnectDone = true;
+            connectToDeriv();
+        }
+    }, 2000);
 });
+
+// Mantener la página activa (evitar que se duerma)
+setInterval(function() {
+    fetch('/ping')
+        .then(response => console.log('🔄 Keep-alive ping'))
+        .catch(() => {});
+}, 300000); // Cada 5 minutos
 </script>
 </body>
 </html>
