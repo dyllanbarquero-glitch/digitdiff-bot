@@ -268,7 +268,7 @@ async function connectDeriv() {
         allAccounts = accData.data || [];
         if (!allAccounts.length) throw new Error('No se encontraron cuentas');
         
-        const account = allAccounts.find(a => a.account_type === 'demo') || allAccounts[0];
+        const account = allAccounts.find(a => a.account_type === 'real') || allAccounts[0];
         currentAccountId = account.account_id;
         currentAccountType = account.account_type;
         botStats.balance = parseFloat(account.balance || 0);
