@@ -9,11 +9,11 @@ console.log('🤖 DIGITDIFF BOT - BACKEND 24/7');
 const REST_BASE = 'https://api.derivws.com';
 const SYMBOLS = ['R_100', '1HZ75V', '1HZ100V', '1HZ25V', '1HZ50V', '1HZ10V', 'JD10', 'JD25', 'JD50', 'JD75', 'JD100'];
 const APP_ID = '33A0UhDa0Wa1FkvF9zlKh';
-const PAT_TOKEN = 'pat_3ee3edc2b80c8daea41968ea5d8205df7f75f187d17f17175d3eb863acb82d23';
-const TRIGGER = 8;
+const PAT_TOKEN = 'pat_339e0dacd3e55300a4170aa59c7ab178eedc5e18000a961d99ed7766f0d9e4bb';
+const TRIGGER = 1.30;
 const STAKE = 8.00;
 const LOOKBACK = 50;
-const MAX_RECONNECT = 20;
+const MAX_RECONNECT = 20000;
 const RECONNECT_DELAY = 5000;
 
 // ==================== ESTADO ====================
