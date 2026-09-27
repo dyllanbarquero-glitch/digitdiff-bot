@@ -11,7 +11,7 @@ const SYMBOLS = ['R_100', '1HZ75V', '1HZ100V', '1HZ25V', '1HZ50V', '1HZ10V', 'JD
 const APP_ID = '33A0UhDa0Wa1FkvF9zlKh';
 const PAT_TOKEN = 'pat_339e0dacd3e55300a4170aa59c7ab178eedc5e18000a961d99ed7766f0d9e4bb';
 const TRIGGER = 8.00;
-const STAKE = 0.60;
+const STAKE = 50.00;
 const LOOKBACK = 50;
 const MAX_RECONNECT = 20000;
 const RECONNECT_DELAY = 5000;
@@ -268,7 +268,7 @@ async function connectDeriv() {
         allAccounts = accData.data || [];
         if (!allAccounts.length) throw new Error('No se encontraron cuentas');
         
-        const account = allAccounts.find(a => a.account_type === 'real') || allAccounts[0];
+        const account = allAccounts.find(a => a.account_type === 'demo') || allAccounts[0];
         currentAccountId = account.account_id;
         currentAccountType = account.account_type;
         botStats.balance = parseFloat(account.balance || 0);
