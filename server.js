@@ -12,7 +12,7 @@ const APP_ID = '33A0UhDa0Wa1FkvF9zlKh';
 const PAT_TOKEN = 'pat_339e0dacd3e55300a4170aa59c7ab178eedc5e18000a961d99ed7766f0d9e4bb';
 
 // Parámetros de la Estrategia EVEN
-const ODD_STREAK_TRIGGER = 7; // Activa compra EVEN cuando ocurren N impares consecutivos
+const ODD_STREAK_TRIGGER = 8; // Activa compra EVEN cuando ocurren N impares consecutivos
 const STAKE = 50.00;
 const LOOKBACK = 50;
 const MAX_RECONNECT = 20000;
