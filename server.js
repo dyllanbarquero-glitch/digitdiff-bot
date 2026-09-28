@@ -12,7 +12,7 @@ const APP_ID = '33A0UhDa0Wa1FkvF9zlKh';
 const PAT_TOKEN = 'pat_339e0dacd3e55300a4170aa59c7ab178eedc5e18000a961d99ed7766f0d9e4bb';
 
 // Parámetros de la Estrategia EVEN
-const TRIGGER = 6; // Racha de impares seguidos para entrar a EVEN
+const TRIGGER = 7; // Racha de impares seguidos para entrar a EVEN
 const BASE_STAKE = 50.00; // Stake base inicial
 const FACTOR_MARTINGALE = 2.0; // Multiplicador tras pérdida
 const MAX_STAKE = 800.00; // Límite máximo de stake por seguridad
