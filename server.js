@@ -3,17 +3,20 @@ const path = require('path');
 const app = express();
 const WebSocket = require('ws');
 
-console.log('🤖 EVEN TRADER BOT - BACKEND 24/7');
+console.log('🤖 EVEN TRADER BOT (MARTINGALE) - BACKEND 24/7');
 
 // ==================== CONFIGURACIÓN ====================
 const REST_BASE = 'https://api.derivws.com';
-const SYMBOLS = ['R_100', '1HZ75V', '1HZ100V', '1HZ25V', '1HZ50V', '1HZ10V', 'JD10', 'JD25', 'JD50', 'JD75', 'JD100'];
+const SYMBOLS = ['R_100']; // Solo 1 par
 const APP_ID = '33A0UhDa0Wa1FkvF9zlKh';
 const PAT_TOKEN = 'pat_339e0dacd3e55300a4170aa59c7ab178eedc5e18000a961d99ed7766f0d9e4bb';
 
 // Parámetros de la Estrategia EVEN
-const TRIGGER = 7; // Racha de impares consecutivos para activar entrada a PAR (EVEN)
-const STAKE = 50.00;
+const TRIGGER = 6; // Racha de impares seguidos para entrar a EVEN
+const BASE_STAKE = 50.00; // Stake base inicial
+const FACTOR_MARTINGALE = 2.0; // Multiplicador tras pérdida
+const MAX_STAKE = 800.00; // Límite máximo de stake por seguridad
+
 const LOOKBACK = 50;
 const MAX_RECONNECT = 20000;
 const RECONNECT_DELAY = 5000;
@@ -29,6 +32,10 @@ let currentAccountType = 'demo';
 let allAccounts = [];
 let currentTradingSymbol = null;
 let tradeLogs = [];
+
+// Martingala
+let currentStake = BASE_STAKE;
+
 let botStats = { balance: 0, totalProfit: 0, winCount: 0, lossCount: 0, totalTrades: 0 };
 
 const symState = {};
@@ -66,18 +73,17 @@ function executeTrade(sym) {
     st.pending = true;
     currentTradingSymbol = sym;
     
-    addLog(`🎯 [${sym}] ENTRADA: ${st.consecutiveOdds} impares seguidos → Comprando EVEN | $${STAKE}`, 'warning');
+    addLog(`🎯 [${sym}] ENTRADA: ${st.consecutiveOdds} impares seguidos → Comprando EVEN | Stake: $${currentStake.toFixed(2)}`, 'warning');
     
     const proposal = {
         proposal: 1,
-        amount: STAKE,
+        amount: parseFloat(currentStake.toFixed(2)),
         basis: 'stake',
         contract_type: 'DIGITEVEN', // Contrato PAR
         currency: 'USD',
         duration: 1,
         duration_unit: 't',
         underlying_symbol: sym
-        // DIGITEVEN no lleva barrera
     };
     
     ws.send(JSON.stringify(proposal));
@@ -94,9 +100,23 @@ function processResult(contractId, profit, exitTick, sym) {
     if (profit > 0) {
         botStats.winCount++;
         addLog(`✅ WIN [${sym}] Salió ${digit} (${isEvenResult ? 'PAR' : 'IMPAR'}) | +$${profit.toFixed(2)}`, 'win');
+        
+        // Reiniciar Martingala al ganar
+        currentStake = BASE_STAKE;
+        addLog(`🔄 Martingala reiniciada a Stake base: $${BASE_STAKE.toFixed(2)}`, 'info');
     } else {
         botStats.lossCount++;
         addLog(`❌ LOSS [${sym}] Salió ${digit} (${isEvenResult ? 'PAR' : 'IMPAR'}) | -$${Math.abs(profit).toFixed(2)}`, 'loss');
+        
+        // Aplicar Martingala al perder
+        const nextStake = currentStake * FACTOR_MARTINGALE;
+        if (nextStake <= MAX_STAKE) {
+            currentStake = nextStake;
+            addLog(`🚀 Martingala aplicada: Próximo Stake: $${currentStake.toFixed(2)}`, 'warning');
+        } else {
+            currentStake = BASE_STAKE;
+            addLog(`⚠️ Stake máximo alcanzado ($${MAX_STAKE}). Reiniciando a Stake base: $${BASE_STAKE.toFixed(2)}`, 'loss');
+        }
     }
     
     if (symState[sym]) {
@@ -116,20 +136,20 @@ function processTick(sym, price) {
     const isEven = (digit % 2 === 0);
 
     if (!isEven) {
-        st.consecutiveOdds++; // Suma racha de impares
+        st.consecutiveOdds++; // Racha de impares
     } else {
-        st.consecutiveOdds = 0; // Reinicia racha al salir un número PAR
+        st.consecutiveOdds = 0; // Se reinicia al salir PAR
     }
 
     st.lastDigit = digit;
     st.tickHistory.unshift(digit);
     if (st.tickHistory.length > LOOKBACK) st.tickHistory.pop();
     
-    // Verificación de disparador para compra
+    // Disparador de entrada
     if (botRunning && st.consecutiveOdds >= TRIGGER) {
         if (st.activeContracts.size === 0 && !st.pending) {
             executeTrade(sym);
-            st.consecutiveOdds = 0; // Reiniciar tras enviar la propuesta
+            st.consecutiveOdds = 0; // Reiniciar racha tras enviar orden
         }
     }
 }
@@ -173,7 +193,7 @@ function handleMsg(data) {
     
     if (data.buy) {
         const id = data.buy.contract_id;
-        const sym = currentTradingSymbol || 'UNKNOWN';
+        const sym = currentTradingSymbol || 'R_100';
         if (symState[sym]) { 
             symState[sym].activeContracts.set(id, { id }); 
             symState[sym].pending = false; 
@@ -198,7 +218,7 @@ function handleMsg(data) {
         const profit = parseFloat(c.profit || 0);
         const cid = c.contract_id;
         const exitTick = c.exit_tick_display_value;
-        const sym = contractSymbolMap.get(cid) || 'UNKNOWN';
+        const sym = contractSymbolMap.get(cid) || 'R_100';
         
         if (symState[sym]?.activeContracts.has(cid)) { 
             processResult(cid, profit, exitTick, sym); 
@@ -215,12 +235,12 @@ function openWS(url) {
         addLog('✅ WebSocket conectado!', 'success');
         ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
         SYMBOLS.forEach(sym => ws.send(JSON.stringify({ ticks: sym, subscribe: 1 })));
-        addLog(`📊 Suscrito a ${SYMBOLS.length} pares [Estrategia DIGITEVEN]`, 'success');
+        addLog(`📊 Suscrito a ${SYMBOLS.join(', ')} [Estrategia DIGITEVEN + Martingala]`, 'success');
         
         // Auto-iniciar el bot
         if (!botRunning) {
             botRunning = true;
-            addLog(`🚀 BOT EVEN INICIADO AUTOMÁTICAMENTE | Stake: $${STAKE} | Trigger: ${TRIGGER} impares seguidos`, 'success');
+            addLog(`🚀 BOT EVEN INICIADO AUTOMÁTICAMENTE | Stake Base: $${BASE_STAKE} | Trigger: ${TRIGGER} impares | Factor Martingala: x${FACTOR_MARTINGALE}`, 'success');
         }
     };
     
@@ -240,7 +260,7 @@ function scheduleReconnect() {
     if (reconnectInterval) clearInterval(reconnectInterval);
     reconnectInterval = setInterval(async () => {
         if (reconnectAttempts >= MAX_RECONNECT) { 
-            addLog('❌ Máximos intentos', 'loss'); 
+            addLog('❌ Máximos intentos alcanzados', 'loss'); 
             clearInterval(reconnectInterval); 
             reconnecting = false; 
             return; 
@@ -318,6 +338,7 @@ app.get('/api/stats', (req, res) => {
         winCount: botStats.winCount,
         lossCount: botStats.lossCount,
         totalTrades: botStats.totalTrades,
+        currentStake: currentStake,
         logs: tradeLogs.slice(0, 50)
     });
 });
@@ -333,7 +354,6 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 // ==================== INICIO ====================
-console.log('🤖 EVEN TRADER BOT - BACKEND 24/7');
-console.log(`📊 ${SYMBOLS.length} pares · Trigger: ${TRIGGER} impares consecutivos · Stake: $${STAKE}`);
-console.log('⏰ El bot funciona automáticamente 24/7');
+console.log('🤖 EVEN TRADER BOT (MARTINGALE) - BACKEND 24/7');
+console.log(`📊 Activo: R_100 · Trigger: ${TRIGGER} impares seguidos · Stake Base: $${BASE_STAKE} · Martingala: x${FACTOR_MARTINGALE}`);
 connectDeriv();
