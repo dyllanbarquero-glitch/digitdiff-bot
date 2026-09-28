@@ -12,7 +12,7 @@ const APP_ID = '33A0UhDa0Wa1FkvF9zlKh';
 const PAT_TOKEN = 'pat_339e0dacd3e55300a4170aa59c7ab178eedc5e18000a961d99ed7766f0d9e4bb';
 
 // Parámetros de la Estrategia EVEN
-const TRIGGER = 3; // Racha de impares consecutivos para activar entrada a PAR (EVEN)
+const TRIGGER = 6; // Racha de impares consecutivos para activar entrada a PAR (EVEN)
 const STAKE = 50.00;
 const LOOKBACK = 50;
 const MAX_RECONNECT = 20000;
