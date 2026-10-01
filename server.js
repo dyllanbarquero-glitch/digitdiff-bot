@@ -494,7 +494,7 @@ async function connectDeriv() {
             allAccounts.find(
                 a =>
                     a.account_type ===
-                    'real'
+                    'demo'
             ) || allAccounts[0];
 
         currentAccountId =
