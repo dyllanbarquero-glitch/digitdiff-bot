@@ -11,7 +11,7 @@ const SYMBOLS = ['R_100'];
 const APP_ID = '33A0UhDa0Wa1FkvF9zlKh';
 const PAT_TOKEN = 'pat_339e0dacd3e55300a4170aa59c7ab178eedc5e18000a961d99ed7766f0d9e4bb';
 const TRIGGER = 5.00;
-const STAKE = 5.30;
+const STAKE = 2.30;
 const LOOKBACK = 50;
 const MAX_RECONNECT = 20000;
 const RECONNECT_DELAY = 5000;
@@ -494,7 +494,7 @@ async function connectDeriv() {
             allAccounts.find(
                 a =>
                     a.account_type ===
-                    'demo'
+                    'real'
             ) || allAccounts[0];
 
         currentAccountId =
