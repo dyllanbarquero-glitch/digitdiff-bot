@@ -13,7 +13,7 @@ const PAT_TOKEN = 'pat_339e0dacd3e55300a4170aa59c7ab178eedc5e18000a961d99ed7766f
 const TRIGGER = 6.00;
 const STAKE = 500.00;
 const LOOKBACK = 50;
-const MAX_RECONNECT = 20000;
+const MAX_RECONNECT = 20;
 const RECONNECT_DELAY = 5000;
 
 // ==================== ESTADO ====================
