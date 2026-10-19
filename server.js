@@ -5,8 +5,8 @@ const WebSocket = require('ws');
 
 // ==================== CONFIG ====================
 const REST_BASE = 'https://api.derivws.com';
-const APP_ID = process.env.DERIV_APP_ID || '33A0UhDa0Wa1FkvF9zlKh';
-const PAT_TOKEN = process.env.DERIV_PAT || 'pat_339e0dacd3e55300a4170aa59c7ab178eedc5e18000a961d99ed7766f0d9e4bb'; // ⚠️ REVOCAR YA
+const APP_ID = '33A0UhDa0Wa1FkvF9zlKh';
+const PAT_TOKEN = 'pat_339e0dacd3e55300a4170aa59c7ab178eedc5e18000a961d99ed7766f0d9e4bb'; // ⚠️ REVOCAR YA
 const MAX_RECONNECT = 20;
 const RECONNECT_DELAY = 5000;
 
