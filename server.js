@@ -17,7 +17,7 @@ const STRATEGY = {
     id: 'digiteven',
     symbol: 'R_100',
     contractType: 'DIGITEVEN',
-    stake: 2.35,
+    stake: 1.20,
     triggerCount: 12,        // 3 impares seguidos
     takeProfit: 30.00,
     maxLoss: 10.00,
@@ -41,7 +41,7 @@ const contractIds = new Set();
 
 let ws = null, botRunning = false, reconnecting = false;
 let reconnectAttempts = 0, reconnectInterval = null;
-let currentAccountId = '', currentAccountType = 'demo';
+let currentAccountId = '', currentAccountType = 'real';
 let tradeLogs = [];
 let balance = 0;
 
