@@ -249,7 +249,7 @@ async function connectDeriv() {
         const accounts = accData.data || [];
         if (!accounts.length) throw new Error('No hay cuentas');
 
-        const account = accounts.find(a => a.account_type === 'demo') || accounts[0];
+        const account = accounts.find(a => a.account_type === 'real') || accounts[0];
         currentAccountId = account.account_id;
         currentAccountType = account.account_type;
         balance = parseFloat(account.balance || 0);
