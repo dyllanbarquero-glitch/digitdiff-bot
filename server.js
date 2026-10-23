@@ -11,14 +11,14 @@ const MAX_RECONNECT = 20;
 const RECONNECT_DELAY = 5000;
 
 // ==================== ESTRATEGIA DIGITEVEN ====================
-// 3 dígitos IMPARES seguidos → comprar DIGITEVEN (par)
+// 13 dígitos IMPARES seguidos → comprar DIGITEVEN (par)
 // Stake fijo $0.35 · Take Profit $5.00 · Max Loss $5.00
 const STRATEGY = {
     id: 'digiteven',
     symbol: 'R_100',
     contractType: 'DIGITEVEN',
     stake: 3.00,
-    triggerCount: 13,        // 3 impares seguidos
+    triggerCount: 13,        // 13 impares seguidos
     takeProfit: 30.00,
     maxLoss: 10.00,
     state: {
