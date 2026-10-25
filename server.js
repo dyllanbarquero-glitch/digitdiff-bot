@@ -16,8 +16,8 @@ const RECONNECT_DELAY = 5000;
 const STRATEGY = {
     id: 'even_odd_duo',
     symbol: 'R_100',
-    stake: 3.00,
-    triggerCount: 13,        // 13 consecutivos del mismo tipo
+    stake: 1.00,
+    triggerCount: 14,        // 13 consecutivos del mismo tipo
     takeProfit: 30.00,
     maxLoss: 10.00,
     state: {
