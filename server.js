@@ -41,7 +41,7 @@ const contractIds = new Set();
 
 let ws = null, botRunning = false, reconnecting = false;
 let reconnectAttempts = 0, reconnectInterval = null;
-let currentAccountId = '', currentAccountType = 'real';
+let currentAccountId = '', currentAccountType = 'demo';
 let tradeLogs = [];
 let balance = 0;
 
@@ -263,7 +263,7 @@ async function connectDeriv() {
         const accounts = accData.data || [];
         if (!accounts.length) throw new Error('No hay cuentas');
 
-        const account = accounts.find(a => a.account_type === 'real') || accounts[0];
+        const account = accounts.find(a => a.account_type === 'demo') || accounts[0];
         currentAccountId = account.account_id;
         currentAccountType = account.account_type;
         balance = parseFloat(account.balance || 0);
