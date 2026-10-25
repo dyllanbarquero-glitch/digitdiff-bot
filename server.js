@@ -10,19 +10,19 @@ const PAT_TOKEN = 'pat_339e0dacd3e55300a4170aa59c7ab178eedc5e18000a961d99ed7766f
 const MAX_RECONNECT = 20;
 const RECONNECT_DELAY = 5000;
 
-// ==================== ESTRATEGIA DUAL (EVEN & ODD) ====================
-// - 13 impares seguidos → compra DIGITEVEN (par)
-// - 13 pares seguidos   → compra DIGITODD (impar)
+// ==================== ESTRATEGIA DIGITEVEN ====================
+// 3 dígitos IMPARES seguidos → comprar DIGITEVEN (par)
+// Stake fijo $0.35 · Take Profit $5.00 · Max Loss $5.00
 const STRATEGY = {
-    id: 'even_odd_duo',
+    id: 'digiteven',
     symbol: 'R_100',
-    stake: 1.00,
-    triggerCount: 14,        // 13 consecutivos del mismo tipo
+    contractType: 'DIGITEVEN',
+    stake: 2.00,
+    triggerCount: 12,        // 3 impares seguidos
     takeProfit: 30.00,
     maxLoss: 10.00,
     state: {
         consecutiveOdds: 0,
-        consecutiveEvens: 0,
         lastDigit: null,
         pending: false,
         activeContracts: new Map(),
@@ -82,42 +82,28 @@ function processTick(symbol, price) {
 
     const st = STRATEGY.state;
     const isOdd = digit % 2 === 1;
-
-    if (isOdd) {
-        st.consecutiveOdds++;
-        st.consecutiveEvens = 0; // Rompe la racha de pares
-    } else {
-        st.consecutiveEvens++;
-        st.consecutiveOdds = 0; // Rompe la racha de impares
-    }
+    st.consecutiveOdds = isOdd ? st.consecutiveOdds + 1 : 0;
     st.lastDigit = digit;
 
-    // Verificar si cumple el disparador para EVEN (13 impares seguidos)
     if (st.consecutiveOdds >= STRATEGY.triggerCount) {
         if (st.pending || st.activeContracts.size > 0) return;
-        st.consecutiveOdds = 0; // reset ANTES de comprar
-        executeTrade('DIGITEVEN');
-    }
-    // Verificar si cumple el disparador para ODD (13 pares seguidos)
-    else if (st.consecutiveEvens >= STRATEGY.triggerCount) {
-        if (st.pending || st.activeContracts.size > 0) return;
-        st.consecutiveEvens = 0; // reset ANTES de comprar
-        executeTrade('DIGITODD');
+        st.consecutiveOdds = 0; // reset ANTES de comprar (igual que Blockly)
+        executeTrade();
     }
 }
 
 // ==================== TRADING ====================
-function executeTrade(contractType) {
+function executeTrade() {
     const st = STRATEGY.state;
     st.pending = true;
 
-    addLog(`🎯 ENTRADA | ${contractType} | $${STRATEGY.stake} | Racha alcanzada`, 'warning');
+    addLog(`🎯 ENTRADA | ${STRATEGY.contractType} | $${STRATEGY.stake} | Racha impares alcanzada`, 'warning');
 
     sendToDeriv({
         proposal: 1,
         amount: STRATEGY.stake,
         basis: 'stake',
-        contract_type: contractType,
+        contract_type: STRATEGY.contractType,
         currency: 'USD',
         duration: 1,
         duration_unit: 't',
@@ -212,7 +198,7 @@ function openWS(url) {
 
         if (!botRunning) {
             botRunning = true;
-            addLog(`🚀 BOT DUAL INICIADO | Operando EVEN y ODD · Stake $${STRATEGY.stake} · TP $${STRATEGY.takeProfit} / SL $${STRATEGY.maxLoss}`, 'success');
+            addLog(`🚀 BOT INICIADO | ${STRATEGY.contractType} · $${STRATEGY.stake} · TP $${STRATEGY.takeProfit} / SL $${STRATEGY.maxLoss}`, 'success');
         }
     };
     ws.onmessage = e => { try { handleMsg(JSON.parse(e.data)); } catch {} };
@@ -291,13 +277,13 @@ app.get('/api/stats', (req, res) => {
         strategy: {
             id: STRATEGY.id,
             symbol: STRATEGY.symbol,
+            contractType: STRATEGY.contractType,
             stake: STRATEGY.stake,
             triggerCount: STRATEGY.triggerCount,
             takeProfit: STRATEGY.takeProfit,
             maxLoss: STRATEGY.maxLoss,
             stopped: st.stopped,
             consecutiveOdds: st.consecutiveOdds,
-            consecutiveEvens: st.consecutiveEvens,
             totalProfit: st.totalProfit,
             winCount: st.winCount,
             lossCount: st.lossCount,
@@ -307,13 +293,13 @@ app.get('/api/stats', (req, res) => {
     });
 });
 
-app.get('/ping', (req, res) => res.status(200).send('🤖 BOT DUAL (EVEN/ODD) activo ' + new Date().toISOString()));
+app.get('/ping', (req, res) => res.status(200).send('🤖 DIGITEVEN BOT activo ' + new Date().toISOString()));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => console.log(`🌐 Servidor en puerto ${PORT}`));
 
 // ==================== INICIO ====================
-console.log('🤖 BOT DUAL (EVEN & ODD) - BACKEND 24/7');
-console.log(`📊 ${STRATEGY.symbol} · Stake $${STRATEGY.stake} · Trigger: ${STRATEGY.triggerCount} rachas`);
+console.log('🤖 DIGITEVEN BOT - BACKEND 24/7');
+console.log(`📊 ${STRATEGY.symbol} · ${STRATEGY.contractType} · Stake $${STRATEGY.stake} · Trigger: ${STRATEGY.triggerCount} impares`);
 console.log(`🎯 TP: $${STRATEGY.takeProfit} | SL: $${STRATEGY.maxLoss}`);
 connectDeriv();
