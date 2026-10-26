@@ -17,8 +17,8 @@ const STRATEGY = {
     id: 'digiteven',
     symbol: 'R_100',
     contractType: 'DIGITEVEN',
-    stake: 2.00,
-    triggerCount: 12,        // 3 impares seguidos
+    stake: 1.00,
+    triggerCount: 14,        // 3 impares seguidos
     takeProfit: 30.00,
     maxLoss: 10.00,
     state: {
