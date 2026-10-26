@@ -16,20 +16,22 @@ const STRATEGY = {
     symbol: 'R_100',
     contractType: 'DIGITEVEN',
     stake: 1.00,
-    triggerCount: 3,          // ⬅️ racha de impares (ajústalo a 3, 14, etc.)
+    triggerCount: 3,
     takeProfit: 30.00,
     maxLoss: 10.00,
     state: {
         consecutiveOdds: 0,
         lastDigit: null,
+        lastQuote: null,
         pending: false,
-        recentDigits: [],     // 🎲 historial de dígitos
+        recentTicks: [],      // 🎲 [{ digit, quote, pipSize, epoch }]
         activeContracts: new Map(),
         totalProfit: 0,
         winCount: 0,
         lossCount: 0,
         totalTrades: 0,
-        stopped: false
+        stopped: false,
+        pipSizeLogged: false
     }
 };
 
@@ -66,45 +68,81 @@ function sendToDeriv(payload) {
     return reqId;
 }
 
-// ==================== TICKS ====================
-function getLastDigit(price) {
-    try { return parseInt(parseFloat(price).toFixed(2).slice(-1)); }
-    catch { return null; }
+// ==================== TICKS — DIGIT EXTRACTION ROBUSTA ====================
+/**
+ * Extrae el último dígito del quote respetando pip_size.
+ * NUNCA devuelve NaN. Devuelve null si el input es inválido.
+ * 
+ * Ejemplos (pipSize=2):
+ *   1234.56  → 6
+ *   1234.50  → 0   (no "5" por pérdida de trailing zero)
+ *   1234.5   → 0   (JS dropea el cero → toFixed lo restaura)
+ *   1234.567 → 7   (se formatea a 2 dec → 1234.57 → "7")
+ */
+function getLastDigit(quote, pipSize) {
+    // Validar pipSize
+    const ps = (Number.isInteger(pipSize) && pipSize >= 0 && pipSize <= 8) ? pipSize : 2;
+
+    // Convertir a número
+    const num = typeof quote === 'number' ? quote : parseFloat(quote);
+    if (!Number.isFinite(num)) return null;
+
+    // Formatear a pipSize decimales y tomar el último carácter
+    const str = num.toFixed(ps);                 // "1234.56"
+    const lastChar = str.charAt(str.length - 1); // "6"
+
+    // Validar que sea dígito
+    const code = lastChar.charCodeAt(0);
+    if (code < 48 || code > 57) return null;
+
+    return code - 48; // faster que parseInt
 }
 
-function processTick(symbol, price) {
+function processTick(symbol, quote, pipSize, epoch) {
     if (symbol !== STRATEGY.symbol) return;
     if (STRATEGY.state.stopped) return;
 
-    const digit = getLastDigit(price);
-    if (digit === null) return;
+    const digit = getLastDigit(quote, pipSize);
+    if (digit === null) {
+        addLog(`⚠️ TICK INVÁLIDO descartado | quote=${quote} pipSize=${pipSize}`, 'loss');
+        return;
+    }
 
     const st = STRATEGY.state;
-    const isOdd = digit % 2 === 1;
 
-    // 🎲 Guardar dígito en historial
-    st.recentDigits.push(digit);
-    if (st.recentDigits.length > 50) st.recentDigits.shift();
+    // 🔍 Log de pip_size solo una vez (para confirmar formato)
+    if (!st.pipSizeLogged) {
+        st.pipSizeLogged = true;
+        addLog(`🔍 ${symbol} pip_size=${pipSize} · primer tick ${quote} → dígito ${digit}`, 'info');
+    }
+
+    // 🎲 Guardar tick completo (para verificación)
+    st.recentTicks.push({ digit, quote, pipSize, epoch });
+    if (st.recentTicks.length > 50) st.recentTicks.shift();
+
     st.lastDigit = digit;
+    st.lastQuote = quote;
+
+    const isOdd = digit % 2 === 1;
 
     // Actualizar racha
     if (isOdd) st.consecutiveOdds++;
     else       st.consecutiveOdds = 0;
 
-    // ⚡ RACHA COMPLETA → ENTRAR INMEDIATAMENTE EN ESTE MISMO TICK
+    // ⚡ RACHA COMPLETA → ENTRAR INMEDIATAMENTE
     if (st.consecutiveOdds >= STRATEGY.triggerCount) {
-        st.consecutiveOdds = 0;                       // reset antes de comprar
+        st.consecutiveOdds = 0;
         if (st.pending || st.activeContracts.size > 0) {
-            addLog(`⚡ Trigger alcanzado pero bot ocupado — skip`, 'warning');
+            addLog(`⚡ Trigger alcanzado pero bot ocupado — skip │ ${quote} d=${digit}`, 'warning');
             return;
         }
-        addLog(`🎯 ${STRATEGY.triggerCount} IMPARES seguidos | dígito ${digit} | ENTRANDO AHORA`, 'warning');
-        executeTrade();                               // 🚀 entrada instantánea
+        addLog(`🎯 ${STRATEGY.triggerCount} IMPARES seguidos │ ${quote} d=${digit} │ ENTRANDO AHORA`, 'warning');
+        executeTrade();
         return;
     }
 
-    // 🎲 Log del dígito (tick normal)
-    addLog(`🎲 ${digit} ${isOdd ? '⬆️' : '⬇️'} · racha ${st.consecutiveOdds}/${STRATEGY.triggerCount}`, 'digit');
+    // 🎲 Log normal con quote crudo para verificar
+    addLog(`🎲 ${digit} ${isOdd ? '⬆️' : '⬇️'} racha ${st.consecutiveOdds}/${STRATEGY.triggerCount} │ ${quote}`, 'digit');
 }
 
 // ==================== TRADING ====================
@@ -118,7 +156,6 @@ function executeTrade() {
 
     addLog(`📤 Solicitando propuesta | ${STRATEGY.contractType} | $${STRATEGY.stake}`, 'warning');
 
-    // Safety: si no hay respuesta en 15s, liberar pending
     setTimeout(() => {
         if (st.pending && st.activeContracts.size === 0) {
             st.pending = false;
@@ -178,7 +215,11 @@ function handleMsg(data) {
         return;
     }
 
-    if (data.tick) { processTick(data.tick.symbol, data.tick.quote); return; }
+    if (data.tick) {
+        // ⬇️ AHORA pasamos pip_size y epoch también
+        processTick(data.tick.symbol, data.tick.quote, data.tick.pip_size, data.tick.epoch);
+        return;
+    }
 
     if (data.proposal) {
         if (STRATEGY.state.stopped || !STRATEGY.state.pending) {
@@ -232,7 +273,7 @@ function openWS(url) {
             addLog(`🚀 BOT INICIADO | ${STRATEGY.contractType} · $${STRATEGY.stake} · TP $${STRATEGY.takeProfit} / SL $${STRATEGY.maxLoss}`, 'success');
         }
     };
-    ws.onmessage = e => { try { handleMsg(JSON.parse(e.data)); } catch {} };
+    ws.onmessage = e => { try { handleMsg(JSON.parse(e.data)); } catch (err) { addLog(`❌ parse error: ${err.message}`, 'loss'); } };
     ws.onerror = () => addLog('❌ Error WebSocket', 'loss');
     ws.onclose = () => {
         addLog('🔌 Conexión cerrada', 'loss');
@@ -303,11 +344,39 @@ async function connectDeriv() {
 app.use(express.static('public'));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'index.html')));
 
+// 🆕 Endpoint de verificación manual: /api/verify?quote=1234.50&pip_size=2
+app.get('/api/verify', (req, res) => {
+    const quote = req.query.quote;
+    const pipSize = parseInt(req.query.pip_size) || 2;
+    const digit = getLastDigit(quote, pipSize);
+    res.json({
+        input: { quote, pipSize },
+        formatted: (() => { try { return Number(quote).toFixed(pipSize); } catch { return null; } })(),
+        digit,
+        isOdd: digit !== null ? digit % 2 === 1 : null
+    });
+});
+
+// 🆕 Endpoint con ticks completos (digit + quote + epoch) para verificar
+app.get('/api/ticks', (req, res) => {
+    const st = STRATEGY.state;
+    res.json({
+        symbol: STRATEGY.symbol,
+        lastQuote: st.lastQuote,
+        lastDigit: st.lastDigit,
+        consecutiveOdds: st.consecutiveOdds,
+        triggerCount: STRATEGY.triggerCount,
+        // Más reciente primero
+        ticks: [...st.recentTicks].reverse()
+    });
+});
+
 app.get('/api/digits', (req, res) => {
     const st = STRATEGY.state;
     res.json({
         lastDigit: st.lastDigit,
-        recentDigits: st.recentDigits,
+        lastQuote: st.lastQuote,
+        recentDigits: st.recentTicks.map(t => t.digit),
         consecutiveOdds: st.consecutiveOdds,
         triggerCount: STRATEGY.triggerCount,
         stopped: st.stopped
@@ -319,7 +388,9 @@ app.get('/api/stats', (req, res) => {
     res.json({
         balance,
         lastDigit: st.lastDigit,
-        recentDigits: st.recentDigits,
+        lastQuote: st.lastQuote,
+        recentDigits: st.recentTicks.map(t => t.digit),
+        recentTicks: [...st.recentTicks].reverse().slice(0, 30),
         strategy: {
             id: STRATEGY.id,
             symbol: STRATEGY.symbol,
