@@ -11,20 +11,19 @@ const MAX_RECONNECT = 20;
 const RECONNECT_DELAY = 5000;
 
 // ==================== ESTRATEGIA DIGITEVEN ====================
-// 3 dígitos IMPARES seguidos → comprar DIGITEVEN (par)
-// Stake fijo $0.35 · Take Profit $5.00 · Max Loss $5.00
 const STRATEGY = {
     id: 'digiteven',
     symbol: 'R_100',
     contractType: 'DIGITEVEN',
     stake: 1.00,
-    triggerCount: 14,        // 3 impares seguidos
+    triggerCount: 3,          // ⬅️ racha de impares (ajústalo a 3, 14, etc.)
     takeProfit: 30.00,
     maxLoss: 10.00,
     state: {
         consecutiveOdds: 0,
         lastDigit: null,
         pending: false,
+        recentDigits: [],     // 🎲 historial de dígitos
         activeContracts: new Map(),
         totalProfit: 0,
         winCount: 0,
@@ -41,7 +40,7 @@ const contractIds = new Set();
 
 let ws = null, botRunning = false, reconnecting = false;
 let reconnectAttempts = 0, reconnectInterval = null;
-let currentAccountId = '', currentAccountType = 'real';
+let currentAccountId = '', currentAccountType = 'demo';
 let tradeLogs = [];
 let balance = 0;
 
@@ -49,7 +48,7 @@ let balance = 0;
 function addLog(msg, type = 'info') {
     const time = new Date().toLocaleTimeString();
     tradeLogs.unshift({ time, msg, type });
-    if (tradeLogs.length > 200) tradeLogs.pop();
+    if (tradeLogs.length > 500) tradeLogs.pop();
     console.log(`[${time}] ${msg}`);
 }
 
@@ -82,22 +81,50 @@ function processTick(symbol, price) {
 
     const st = STRATEGY.state;
     const isOdd = digit % 2 === 1;
-    st.consecutiveOdds = isOdd ? st.consecutiveOdds + 1 : 0;
+
+    // 🎲 Guardar dígito en historial
+    st.recentDigits.push(digit);
+    if (st.recentDigits.length > 50) st.recentDigits.shift();
     st.lastDigit = digit;
 
+    // Actualizar racha
+    if (isOdd) st.consecutiveOdds++;
+    else       st.consecutiveOdds = 0;
+
+    // ⚡ RACHA COMPLETA → ENTRAR INMEDIATAMENTE EN ESTE MISMO TICK
     if (st.consecutiveOdds >= STRATEGY.triggerCount) {
-        if (st.pending || st.activeContracts.size > 0) return;
-        st.consecutiveOdds = 0; // reset ANTES de comprar (igual que Blockly)
-        executeTrade();
+        st.consecutiveOdds = 0;                       // reset antes de comprar
+        if (st.pending || st.activeContracts.size > 0) {
+            addLog(`⚡ Trigger alcanzado pero bot ocupado — skip`, 'warning');
+            return;
+        }
+        addLog(`🎯 ${STRATEGY.triggerCount} IMPARES seguidos | dígito ${digit} | ENTRANDO AHORA`, 'warning');
+        executeTrade();                               // 🚀 entrada instantánea
+        return;
     }
+
+    // 🎲 Log del dígito (tick normal)
+    addLog(`🎲 ${digit} ${isOdd ? '⬆️' : '⬇️'} · racha ${st.consecutiveOdds}/${STRATEGY.triggerCount}`, 'digit');
 }
 
 // ==================== TRADING ====================
 function executeTrade() {
     const st = STRATEGY.state;
+    if (st.pending) {
+        addLog('⚠️ Trade en curso, se ignora entrada', 'warning');
+        return;
+    }
     st.pending = true;
 
-    addLog(`🎯 ENTRADA | ${STRATEGY.contractType} | $${STRATEGY.stake} | Racha impares alcanzada`, 'warning');
+    addLog(`📤 Solicitando propuesta | ${STRATEGY.contractType} | $${STRATEGY.stake}`, 'warning');
+
+    // Safety: si no hay respuesta en 15s, liberar pending
+    setTimeout(() => {
+        if (st.pending && st.activeContracts.size === 0) {
+            st.pending = false;
+            addLog('⚠️ Timeout de propuesta — pending liberado', 'warning');
+        }
+    }, 15000);
 
     sendToDeriv({
         proposal: 1,
@@ -118,10 +145,10 @@ function processResult(contractId, profit) {
 
     if (profit > 0) {
         st.winCount++;
-        addLog(`✅ WIN +$${profit.toFixed(2)} | Total: $${st.totalProfit.toFixed(2)}`, 'win');
+        addLog(`✅ WIN +$${profit.toFixed(2)} | Total: $${st.totalProfit.toFixed(2)} | W:${st.winCount}/L:${st.lossCount}`, 'win');
     } else {
         st.lossCount++;
-        addLog(`❌ LOSS -$${Math.abs(profit).toFixed(2)} | Total: $${st.totalProfit.toFixed(2)}`, 'loss');
+        addLog(`❌ LOSS -$${Math.abs(profit).toFixed(2)} | Total: $${st.totalProfit.toFixed(2)} | W:${st.winCount}/L:${st.lossCount}`, 'loss');
     }
 
     st.activeContracts.delete(contractId);
@@ -154,7 +181,10 @@ function handleMsg(data) {
     if (data.tick) { processTick(data.tick.symbol, data.tick.quote); return; }
 
     if (data.proposal) {
-        if (STRATEGY.state.stopped) { STRATEGY.state.pending = false; return; }
+        if (STRATEGY.state.stopped || !STRATEGY.state.pending) {
+            addLog('⚠️ Propuesta obsoleta ignorada', 'warning');
+            return;
+        }
         sendToDeriv({ buy: data.proposal.id, price: data.proposal.ask_price });
         return;
     }
@@ -164,6 +194,7 @@ function handleMsg(data) {
         STRATEGY.state.activeContracts.set(id, { id });
         STRATEGY.state.pending = false;
         contractIds.add(id);
+        addLog(`📋 Contrato abierto: ${id}`, 'info');
 
         const monitor = setInterval(() => {
             if (!STRATEGY.state.activeContracts.has(id)) { clearInterval(monitor); return; }
@@ -205,6 +236,8 @@ function openWS(url) {
     ws.onerror = () => addLog('❌ Error WebSocket', 'loss');
     ws.onclose = () => {
         addLog('🔌 Conexión cerrada', 'loss');
+        STRATEGY.state.consecutiveOdds = 0;
+        STRATEGY.state.pending = false;
         if (botRunning) scheduleReconnect();
     };
 }
@@ -249,7 +282,7 @@ async function connectDeriv() {
         const accounts = accData.data || [];
         if (!accounts.length) throw new Error('No hay cuentas');
 
-        const account = accounts.find(a => a.account_type === 'real') || accounts[0];
+        const account = accounts.find(a => a.account_type === 'demo') || accounts[0];
         currentAccountId = account.account_id;
         currentAccountType = account.account_type;
         balance = parseFloat(account.balance || 0);
@@ -270,10 +303,23 @@ async function connectDeriv() {
 app.use(express.static('public'));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'index.html')));
 
+app.get('/api/digits', (req, res) => {
+    const st = STRATEGY.state;
+    res.json({
+        lastDigit: st.lastDigit,
+        recentDigits: st.recentDigits,
+        consecutiveOdds: st.consecutiveOdds,
+        triggerCount: STRATEGY.triggerCount,
+        stopped: st.stopped
+    });
+});
+
 app.get('/api/stats', (req, res) => {
     const st = STRATEGY.state;
     res.json({
         balance,
+        lastDigit: st.lastDigit,
+        recentDigits: st.recentDigits,
         strategy: {
             id: STRATEGY.id,
             symbol: STRATEGY.symbol,
@@ -289,7 +335,7 @@ app.get('/api/stats', (req, res) => {
             lossCount: st.lossCount,
             totalTrades: st.totalTrades
         },
-        logs: tradeLogs.slice(0, 50)
+        logs: tradeLogs.slice(0, 200)
     });
 });
 
